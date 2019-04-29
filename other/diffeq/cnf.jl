@@ -9,11 +9,11 @@ tspan = Float32.((0.0, 10.0))
 function cnf(u,p,t)
   z = @view u[1:end-1,:]
   m = DiffEqFlux.restructure(nn,p)
-  jac = -sum(Tracker.jacobian((z)->log.(z), z))
+  jac = [-sum(Tracker.jacobian((zi)->log.(zi),[z[i]])) for i in eachindex(z)]
   if u isa TrackedArray
-      res = Tracker.collect([m(z);jac])
+      res = Tracker.collect(cat(m(z),jac,dims=1))
   else
-      res = Tracker.data([m(z);jac])
+      res = Tracker.data.(cat(m(z),jac,dims=1))
   end
   res
 end
