@@ -7,7 +7,7 @@ nn = Chain(Dense(1,1,tanh))
 p = DiffEqFlux.destructure(nn)
 tspan = Float32.((0.0, 10.0))
 function cnf(u,p,t)
-  z = @view u[1:end-1]
+  z = @view u[1:end-1,:]
   m = DiffEqFlux.restructure(nn,p)
   jac = -sum(Tracker.jacobian((z)->log.(z), z))
   if u isa TrackedArray
@@ -41,11 +41,16 @@ end
 
 opt = ADAM(0.1)
 
-raw_data = [Float32[rand(Normal(2.0, 0.1)) for i in 1:100]]
-data = Iterators.repeated(raw_data, 1);
+const BATCH_SIZE = 100
+raw_data = Float32.(rand(Normal(2.0, 0.1),BATCH_SIZE))' # (D,BS)
+data = Iterators.repeated([raw_data], 1);
 
-loss_adjoint(raw_data[1])
+diffeq_adjoint(p,prob,Tsit5(),u0=[raw_data;zero(raw_data)],
+                   saveat=0.0:0.1:10.0,
+                   sensealg=DiffEqFlux.SensitivityAlg(quad=false,
+                                backsolve=true,autojacvec=true))
+
+loss_adjoint(raw_data)
 
 Flux.train!(loss_adjoint, params, data, opt)
 iszero(Tracker.grad(nn[1].W))
-
